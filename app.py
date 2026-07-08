@@ -1,6 +1,6 @@
 import streamlit as st
 
-from fish_tts import synthesize_fish_tts
+from fish_tts import nemo_to_fish_tts_text, synthesize_fish_tts
 from orthography_v2 import render_orthography_html
 from translator_v2_core import lexicon_rows, to_json, translate
 
@@ -36,7 +36,7 @@ st.subheader("文字输出")
 st.markdown(render_orthography_html(result["nemo"]), unsafe_allow_html=True)
 
 st.subheader("语音输出")
-tts_default = result["nemo"]
+tts_default = nemo_to_fish_tts_text(result["nemo"])
 if st.session_state.get("last_fish_tts_default") != tts_default:
     st.session_state["fish_tts_text"] = tts_default
     st.session_state["last_fish_tts_default"] = tts_default

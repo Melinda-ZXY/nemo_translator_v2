@@ -7,12 +7,25 @@ from urllib.request import Request, urlopen
 
 
 FISH_TTS_URL = "https://api.fish.audio/v1/tts"
+FISH_TTS_TOKEN_OVERRIDES = {
+    "nemo": "nimo",
+}
 
 
 @dataclass
 class FishTTSResult:
     audio_bytes: bytes
     mime_type: str
+
+
+def nemo_to_fish_tts_text(nemo_text: str) -> str:
+    parts: list[str] = []
+    for raw_token in (nemo_text or "").split():
+        token = raw_token.strip()
+        if not token:
+            continue
+        parts.append(FISH_TTS_TOKEN_OVERRIDES.get(token.lower(), token))
+    return " ".join(parts)
 
 
 def synthesize_fish_tts(
