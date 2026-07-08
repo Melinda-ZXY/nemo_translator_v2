@@ -72,6 +72,7 @@ LEXICON = {
     "Nemo": {"nemo": "nemo", "pos": "noun", "english": "Nemo", "shape": "name"},
     "尼莫": {"nemo": "nemo", "pos": "noun", "english": "Nemo", "shape": "name"},
     "你": {"nemo": "na", "pos": "noun", "english": "you", "shape": "CV"},
+    "鬼": {"nemo": "tak", "pos": "noun", "english": "ghost", "shape": "CVC"},
     "他": {"nemo": "po", "pos": "noun", "english": "he/she", "shape": "CV"},
     "她": {"nemo": "po", "pos": "noun", "english": "he/she", "shape": "CV"},
     "它": {"nemo": "po", "pos": "noun", "english": "he/she", "shape": "CV"},
@@ -93,7 +94,6 @@ PUNCTUATION = "，。！？；：,.!?;:"
 PINYIN_FALLBACKS = {
     "苹果": "pingguo",
     "咖啡": "kafei",
-    "鬼": "gui",
     "跑步": "paobu",
     "小狗": "xiaogou",
 }
