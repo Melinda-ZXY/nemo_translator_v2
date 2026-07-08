@@ -37,12 +37,6 @@ def render_orthography_html(nemo_text: str) -> str:
   height: 78px;
   object-fit: contain;
 }
-.v2-glyph-label {
-  margin-top: 4px;
-  color: #475569;
-  font-size: 11px;
-  line-height: 1;
-}
 .v2-glyph-placeholder {
   min-width: 74px;
   height: 78px;
@@ -88,7 +82,6 @@ def _render_token(token: str) -> str:
         return (
             f'<span class="v2-glyph" title="{safe_token}">'
             f'<img src="{data_uri}" alt="{safe_token}"/>'
-            f'<span class="v2-glyph-label">{safe_token}</span>'
             "</span>"
         )
 
