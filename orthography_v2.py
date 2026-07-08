@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import base64
 import html
+from functools import lru_cache
+from pathlib import Path
 
 
-GLYPH_MAP: dict[str, str] = {}
+GLYPH_DIR = Path(__file__).parent / "assets" / "version2"
 
 
 def render_orthography_html(nemo_text: str) -> str:
@@ -17,13 +20,32 @@ def render_orthography_html(nemo_text: str) -> str:
 .v2-orthography-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
+  gap: 12px;
+  align-items: flex-end;
   margin: 4px 0 12px;
+}
+.v2-glyph {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 58px;
+}
+.v2-glyph img {
+  display: block;
+  max-width: 92px;
+  height: 78px;
+  object-fit: contain;
+}
+.v2-glyph-label {
+  margin-top: 4px;
+  color: #475569;
+  font-size: 11px;
+  line-height: 1;
 }
 .v2-glyph-placeholder {
   min-width: 74px;
-  height: 58px;
+  height: 78px;
   padding: 7px 9px;
   border: 1px dashed #9aa4b2;
   border-radius: 8px;
@@ -53,20 +75,35 @@ def render_orthography_html(nemo_text: str) -> str:
     ]
 
     for token in tokens:
-        normalized = token.lower()
-        glyph = GLYPH_MAP.get(normalized)
-        if glyph:
-            parts.append(glyph)
-            continue
-        safe_token = html.escape(token)
-        parts.append(
-            f"""
-  <span class="v2-glyph-placeholder" title="待补字形：{safe_token}">
-    <span class="v2-glyph-token">{safe_token}</span>
-    <span class="v2-glyph-note">待补字形</span>
-  </span>
-"""
-        )
+        parts.append(_render_token(token))
 
     parts.append("</div>")
     return "".join(parts)
+
+
+def _render_token(token: str) -> str:
+    safe_token = html.escape(token)
+    data_uri = _glyph_data_uri(token)
+    if data_uri:
+        return (
+            f'<span class="v2-glyph" title="{safe_token}">'
+            f'<img src="{data_uri}" alt="{safe_token}"/>'
+            f'<span class="v2-glyph-label">{safe_token}</span>'
+            "</span>"
+        )
+
+    return (
+        f'<span class="v2-glyph-placeholder" title="待补字形：{safe_token}">'
+        f'<span class="v2-glyph-token">{safe_token}</span>'
+        '<span class="v2-glyph-note">待补字形</span>'
+        "</span>"
+    )
+
+
+@lru_cache(maxsize=None)
+def _glyph_data_uri(token: str) -> str | None:
+    path = GLYPH_DIR / f"{token.lower()}.svg"
+    if not path.exists():
+        return None
+    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:image/svg+xml;base64,{encoded}"

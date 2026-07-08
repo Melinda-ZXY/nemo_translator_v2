@@ -53,4 +53,4 @@ with st.expander("V2 词表", expanded=False):
 with st.expander("Raw JSON", expanded=False):
     st.code(to_json(result), language="json")
 
-st.info("文字输出区会保留待补字形占位符；等 v2 glyph map 完成后可以直接替换。")
+st.info("文字输出会使用 Version2 字形；没有对应 SVG 的词会保留待补字形占位符。")

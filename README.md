@@ -17,4 +17,4 @@ For Streamlit Community Cloud, create a new app from this repository and set the
 app.py
 ```
 
-Orthography/glyph output is intentionally held as placeholders until v2 glyph mappings are available.
+Orthography/glyph output uses SVG assets from `assets/version2`. Tokens without a matching SVG keep a placeholder in the UI.
