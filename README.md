@@ -30,3 +30,5 @@ FISH_MODEL = "s2-pro"
 ```
 
 `FISH_SPEAKER_ID` is also accepted as an alias for `FISH_REFERENCE_ID`.
+
+The app also has a `Fish Audio 设置` panel where API key and speaker/reference ID can be entered temporarily in the browser. Streamlit Secrets are still recommended for deployment.

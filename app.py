@@ -41,13 +41,31 @@ if st.session_state.get("last_fish_tts_default") != tts_default:
 
 tts_text = st.text_input("Fish Audio 输入", key="fish_tts_text")
 tts_speed = st.slider("语速", min_value=0.5, max_value=1.8, value=1.0, step=0.05)
-fish_api_key = st.secrets.get("FISH_API_KEY", "")
-fish_reference_id = st.secrets.get("FISH_REFERENCE_ID", st.secrets.get("FISH_SPEAKER_ID", ""))
-fish_model = st.secrets.get("FISH_MODEL", "s2-pro")
+secret_fish_api_key = st.secrets.get("FISH_API_KEY", "")
+secret_fish_reference_id = st.secrets.get("FISH_REFERENCE_ID", st.secrets.get("FISH_SPEAKER_ID", ""))
+secret_fish_model = st.secrets.get("FISH_MODEL", "s2-pro")
+
+with st.expander("Fish Audio 设置", expanded=not bool(secret_fish_api_key and secret_fish_reference_id)):
+    fish_api_key_input = st.text_input(
+        "API Key",
+        value="",
+        type="password",
+        placeholder="如果没有设置 Streamlit Secrets，可以临时填在这里",
+    )
+    fish_reference_id_input = st.text_input(
+        "Speaker / Reference ID",
+        value="",
+        placeholder="如果没有设置 Streamlit Secrets，可以临时填在这里",
+    )
+    fish_model_input = st.text_input("Model", value=secret_fish_model or "s2-pro")
+
+fish_api_key = fish_api_key_input.strip() or secret_fish_api_key
+fish_reference_id = fish_reference_id_input.strip() or secret_fish_reference_id
+fish_model = fish_model_input.strip() or secret_fish_model or "s2-pro"
 
 fish_ready = bool(fish_api_key and fish_reference_id)
 if not fish_ready:
-    st.warning("请在 Streamlit Secrets 里设置 FISH_API_KEY 和 FISH_REFERENCE_ID。")
+    st.warning("请在 Fish Audio 设置里填写 API Key 和 Speaker / Reference ID，或在 Streamlit Secrets 里设置。")
 
 if st.button("生成语音", disabled=not bool(tts_text.strip()) or not fish_ready):
     try:
