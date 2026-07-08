@@ -45,6 +45,7 @@ LEXICON = {
     "电池": {"nemo": "plana", "pos": "noun", "english": "battery", "shape": "CCV.CV"},
     "紧张": {"nemo": "bluma", "pos": "state", "english": "nervous/anxious", "shape": "CCV.CV"},
     "焦虑": {"nemo": "bluma", "pos": "state", "english": "nervous/anxious", "shape": "CCV.CV"},
+    "憎恨": {"nemo": "kla", "pos": "state", "english": "hate/hatred", "shape": "CCV"},
     "离开": {"nemo": "dlamo", "pos": "verb", "english": "away", "shape": "CCV.CV"},
     "走开": {"nemo": "dlamo", "pos": "verb", "english": "away", "shape": "CCV.CV"},
 
@@ -81,6 +82,7 @@ LEXICON = {
     "很多": {"nemo": "su", "pos": "particle", "function": "plural", "english": "plural", "shape": "CV"},
     "了": {"nemo": "", "pos": "particle", "function": "aspect", "english": "aspect", "shape": ""},
     "是": {"nemo": "za", "pos": "particle", "function": "copula", "english": "be/is", "shape": "CV"},
+    "搞什么鬼": {"nemo": "kla tosh tak", "pos": "expression", "english": "what the hell / hate super-ghost", "shape": "expression"},
 }
 
 ALIASES = {
