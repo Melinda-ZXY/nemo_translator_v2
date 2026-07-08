@@ -79,7 +79,7 @@ LEXICON = {
     "好多": {"nemo": "su", "pos": "particle", "function": "plural", "english": "plural", "shape": "CV"},
     "很多": {"nemo": "su", "pos": "particle", "function": "plural", "english": "plural", "shape": "CV"},
     "了": {"nemo": "", "pos": "particle", "function": "aspect", "english": "aspect", "shape": ""},
-    "是": {"nemo": "", "pos": "particle", "function": "copula", "english": "copula", "shape": ""},
+    "是": {"nemo": "za", "pos": "particle", "function": "copula", "english": "be/is", "shape": "CV"},
 }
 
 ALIASES = {
@@ -93,6 +93,7 @@ PUNCTUATION = "，。！？；：,.!?;:"
 PINYIN_FALLBACKS = {
     "苹果": "pingguo",
     "咖啡": "kafei",
+    "鬼": "gui",
     "跑步": "paobu",
     "小狗": "xiaogou",
 }
@@ -295,6 +296,7 @@ def generate_nemo(parsed: dict) -> list[str]:
         return tokens
 
     if sentence_type == "identity":
+        tokens.append("za")
         _append_entity(tokens, parsed.get("subject"))
         _append_entity(tokens, parsed.get("object"))
         _append_negation(tokens, parsed)
