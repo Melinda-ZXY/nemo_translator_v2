@@ -6,6 +6,11 @@ from orthography_v2 import render_orthography_html
 from translator_v2_core import lexicon_rows, to_json, translate
 
 
+VOICE_MODE_LABELS = {
+    "normal": "normal",
+    "angry": "angry",
+}
+
 EXAMPLES = [
     "主人开心",
     "主人不开心",
@@ -43,7 +48,8 @@ if st.session_state.get("last_fish_tts_default") != tts_default:
     st.session_state["last_fish_tts_default"] = tts_default
 
 tts_text = st.text_input("Fish Audio 输入", key="fish_tts_text")
-tts_speed = st.slider("语速", min_value=0.5, max_value=1.8, value=1.15, step=0.05)
+voice_mode = st.selectbox("语音模式", list(VOICE_MODE_LABELS), format_func=VOICE_MODE_LABELS.get)
+angry_speed = st.slider("angry 语速", min_value=1.0, max_value=1.8, value=1.15, step=0.05)
 secret_fish_api_key = st.secrets.get("FISH_API_KEY", "")
 secret_fish_reference_id = st.secrets.get("FISH_REFERENCE_ID", st.secrets.get("FISH_SPEAKER_ID", ""))
 secret_fish_model = st.secrets.get("FISH_MODEL", "s2-pro")
@@ -73,6 +79,7 @@ if not fish_ready:
 if st.button("生成语音", disabled=not bool(tts_text.strip()) or not fish_ready):
     try:
         with st.spinner("正在生成语音..."):
+            tts_speed = angry_speed if voice_mode == "angry" else 1.0
             audio = synthesize_fish_tts(
                 tts_text,
                 api_key=fish_api_key,
@@ -81,13 +88,21 @@ if st.button("生成语音", disabled=not bool(tts_text.strip()) or not fish_rea
                 speed=tts_speed,
                 audio_format="wav",
             )
-            processed_audio = process_wav_bytes(audio.audio_bytes, syllable_text=tts_text)
-        st.audio(processed_audio.wav_bytes, format=processed_audio.mime_type)
-        st.caption(
-            f"语速：{tts_speed:.2f}x，"
-            f"结尾托住：{'yes' if processed_audio.tail_adjusted else 'no'}，"
-            f"最后音节：{processed_audio.final_syllable or 'unknown'}"
-        )
+            if voice_mode == "angry":
+                processed_audio = process_wav_bytes(audio.audio_bytes, syllable_text=tts_text)
+                audio_bytes = processed_audio.wav_bytes
+                audio_mime_type = processed_audio.mime_type
+                caption = (
+                    f"模式：angry，语速：{tts_speed:.2f}x，"
+                    f"结尾托住：{'yes' if processed_audio.tail_adjusted else 'no'}，"
+                    f"最后音节：{processed_audio.final_syllable or 'unknown'}"
+                )
+            else:
+                audio_bytes = audio.audio_bytes
+                audio_mime_type = audio.mime_type
+                caption = "模式：normal，语速：1.00x"
+        st.audio(audio_bytes, format=audio_mime_type)
+        st.caption(caption)
     except Exception as exc:
         st.error(f"Fish Audio 生成失败：{exc}")
 

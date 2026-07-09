@@ -37,7 +37,12 @@ The app also has a `Fish Audio 设置` panel where API key and speaker/reference
 
 The app requests WAV audio from Fish Audio, then applies a minimal post-processing pass in `audio_postprocess.py`.
 
-The post-processing does not add extra speaking modes. It only holds up the final syllable so the ending does not drop in pitch/intensity. If the final syllable has a consonant coda, only the vowel nucleus gets the small pitch lift; the final consonant is not stretched.
+The app has two voice modes:
+
+- `normal`: original Fish Audio output at 1.00x speed.
+- `angry`: faster Fish Audio speed plus a minimal ending post-process.
+
+The angry post-process only holds up the final syllable so the ending does not drop in pitch/intensity. If the final syllable has a consonant coda, only the vowel nucleus gets the small pitch lift; the final consonant is not stretched.
 
 Standalone use:
 
