@@ -51,12 +51,12 @@ class EndingPreset:
     limiter_ceiling: float = 0.96
     frame_ms: float = 20.0
     hop_ms: float = 10.0
-    tail_search_ms: float = 420.0
+    tail_search_ms: float = 560.0
     min_tail_ms: float = 65.0
-    final_start_gain_db: float = 0.4
-    final_vowel_gain_db: float = 2.4
-    final_end_gain_db: float = 2.0
-    final_vowel_pitch_steps: float = 0.35
+    final_start_gain_db: float = 0.7
+    final_vowel_gain_db: float = 2.8
+    final_end_gain_db: float = 3.0
+    final_vowel_pitch_steps: float = 0.55
     crossfade_ms: float = 18.0
 
 
@@ -68,6 +68,7 @@ class ProcessedAudio:
     input_duration_seconds: float
     output_duration_seconds: float
     syllable_count: int
+    final_word: str
     final_syllable: str
     tail_adjusted: bool
     mime_type: str = "audio/wav"
@@ -92,10 +93,11 @@ def process_wav_bytes(
     preset = preset or EndingPreset()
     audio, sample_rate, channels = _read_wav_bytes(wav_bytes)
     audio = _reduce_if_clipping(audio, preset.limiter_ceiling)
+    final_word = _final_word(syllable_text)
     syllables = _parse_syllables(syllable_text)
     final_syllable = syllables[-1] if syllables else ""
 
-    processed, adjusted = _hold_final_syllable(audio, sample_rate, final_syllable, preset)
+    processed, adjusted = _hold_final_word(audio, sample_rate, final_word, final_syllable, preset)
     processed = _soft_limiter(processed, preset.limiter_ceiling)
 
     return ProcessedAudio(
@@ -105,14 +107,16 @@ def process_wav_bytes(
         input_duration_seconds=len(audio) / sample_rate if sample_rate else 0.0,
         output_duration_seconds=len(processed) / sample_rate if sample_rate else 0.0,
         syllable_count=len(syllables),
+        final_word=final_word,
         final_syllable=final_syllable,
         tail_adjusted=adjusted,
     )
 
 
-def _hold_final_syllable(
+def _hold_final_word(
     audio: np.ndarray,
     sample_rate: int,
+    final_word: str,
     final_syllable: str,
     preset: EndingPreset,
 ) -> tuple[np.ndarray, bool]:
@@ -121,6 +125,7 @@ def _hold_final_syllable(
         return audio.copy(), False
 
     tail_start, tail_end = tail
+    word_start = _estimate_final_word_start(tail_start, tail_end, sample_rate, final_word)
     vowel_start, vowel_end = _estimate_vowel_region(
         tail_start,
         tail_end,
@@ -128,7 +133,7 @@ def _hold_final_syllable(
         final_syllable,
     )
     out = audio.copy()
-    out = _apply_final_intensity_hold(out, tail_start, vowel_start, vowel_end, tail_end, preset)
+    out = _apply_final_intensity_hold(out, word_start, vowel_start, vowel_end, tail_end, preset)
     out = _lift_vowel_pitch(out, sample_rate, vowel_start, vowel_end, preset)
     return out, True
 
@@ -197,6 +202,13 @@ def _estimate_vowel_region(
     return vowel_start, vowel_end
 
 
+def _estimate_final_word_start(tail_start: int, tail_end: int, sample_rate: int, final_word: str) -> int:
+    syllable_count = max(1, len(TOKEN_SYLLABLES.get(final_word, _rough_syllables_from_token(final_word))))
+    target_ms = 95 + syllable_count * 85
+    target_len = int(sample_rate * min(520.0, target_ms) / 1000)
+    return max(0, min(tail_start, tail_end - target_len))
+
+
 def _split_syllable(syllable: str) -> tuple[str, str, str]:
     syllable = (syllable or "").lower()
     match = re.search(r"[aeiou]+", syllable)
@@ -208,16 +220,24 @@ def _split_syllable(syllable: str) -> tuple[str, str, str]:
     return syllable[:start], syllable[start:end], syllable[end:]
 
 
+def _final_word(text: str | None) -> str:
+    if not text:
+        return ""
+    text = re.sub(r"\[[^\]]+\]", " ", text.lower())
+    tokens = re.findall(r"[a-z:]+", text)
+    return tokens[-1] if tokens else ""
+
+
 def _apply_final_intensity_hold(
     audio: np.ndarray,
-    tail_start: int,
+    word_start: int,
     vowel_start: int,
     vowel_end: int,
     tail_end: int,
     preset: EndingPreset,
 ) -> np.ndarray:
     out = audio.copy()
-    points = np.array([tail_start, vowel_start, vowel_end, tail_end - 1], dtype=np.float32)
+    points = np.array([word_start, vowel_start, vowel_end, tail_end - 1], dtype=np.float32)
     gains = np.array(
         [
             preset.final_start_gain_db,
@@ -233,10 +253,10 @@ def _apply_final_intensity_hold(
         return out
 
     envelope = np.zeros(len(out), dtype=np.float32)
-    span = np.arange(tail_start, tail_end, dtype=np.float32)
-    envelope[tail_start:tail_end] = np.interp(span, points, gains)
-    smooth_width = max(5, min(301, (tail_end - tail_start) // 4))
-    envelope[tail_start:tail_end] = _smooth_1d(envelope[tail_start:tail_end], smooth_width)
+    span = np.arange(word_start, tail_end, dtype=np.float32)
+    envelope[word_start:tail_end] = np.interp(span, points, gains)
+    smooth_width = max(5, min(301, (tail_end - word_start) // 4))
+    envelope[word_start:tail_end] = _smooth_1d(envelope[word_start:tail_end], smooth_width)
     out *= (10.0 ** (envelope / 20.0)).reshape(-1, 1)
     return out
 

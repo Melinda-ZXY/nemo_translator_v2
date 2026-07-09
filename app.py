@@ -49,7 +49,7 @@ if st.session_state.get("last_fish_tts_default") != tts_default:
 
 tts_text = st.text_input("Fish Audio 输入", key="fish_tts_text")
 voice_mode = st.selectbox("语音模式", list(VOICE_MODE_LABELS), format_func=VOICE_MODE_LABELS.get)
-angry_speed = st.slider("angry 语速", min_value=1.0, max_value=1.8, value=1.15, step=0.05)
+angry_speed = st.slider("angry 语速", min_value=1.0, max_value=1.8, value=1.6, step=0.05)
 secret_fish_api_key = st.secrets.get("FISH_API_KEY", "")
 secret_fish_reference_id = st.secrets.get("FISH_REFERENCE_ID", st.secrets.get("FISH_SPEAKER_ID", ""))
 secret_fish_model = st.secrets.get("FISH_MODEL", "s2-pro")
@@ -95,7 +95,7 @@ if st.button("生成语音", disabled=not bool(tts_text.strip()) or not fish_rea
                 caption = (
                     f"模式：angry，语速：{tts_speed:.2f}x，"
                     f"结尾托住：{'yes' if processed_audio.tail_adjusted else 'no'}，"
-                    f"最后音节：{processed_audio.final_syllable or 'unknown'}"
+                    f"最后词：{processed_audio.final_word or 'unknown'}"
                 )
             else:
                 audio_bytes = audio.audio_bytes
