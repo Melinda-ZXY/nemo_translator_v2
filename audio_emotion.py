@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import re
 from dataclasses import dataclass, replace
 from pathlib import Path
 from collections.abc import Iterable
@@ -24,34 +25,70 @@ class EmotionPreset:
     hop_ms: float = 10.0
     phrase_pause_ms: float = 140.0
     boundary_pad_ms: float = 20.0
-    crossfade_ms: float = 16.0
+    crossfade_ms: float = 28.0
     onset_rise_db: float = 5.5
     min_feature_distance_ms: float = 85.0
     max_peak_count: int = 4
-    urgent_speed: float = 1.32
+    urgent_speed: float = 1.18
     urgent_pitch_steps: float = 0.0
     urgent_gain_db: float = 0.7
     urgent_presence_db: float = 0.4
-    angry_weak_speed: float = 1.22
+    angry_weak_speed: float = 1.06
     angry_strong_speed: float = 1.0
     angry_baseline_pitch_steps: float = 0.0
-    angry_peak_pitch_steps: float = 0.35
-    angry_peak_gain_db: float = 2.4
-    angry_onset_gain_db: float = 1.8
+    angry_peak_pitch_steps: float = 0.0
+    angry_peak_gain_db: float = 1.8
+    angry_onset_gain_db: float = 1.2
     angry_presence_db: float = 0.6
     protect_window_ms: float = 80.0
     pitch_spike_window_ms: float = 45.0
     tail_search_ms: float = 360.0
     tail_min_ms: float = 70.0
-    tail_stretch: float = 1.16
+    tail_stretch: float = 1.10
     tail_max_add_ms: float = 160.0
-    tail_fall_steps: float = 0.8
+    tail_fall_steps: float = 0.0
     tail_start_gain_db: float = 1.6
     tail_end_gain_db: float = -3.2
     angry_urgent_begin_fraction: float = 0.45
-    angry_urgent_begin_speed: float = 1.34
+    angry_urgent_begin_speed: float = 1.18
     angry_urgent_begin_pitch_steps: float = 0.0
-    angry_urgent_middle_speed: float = 1.18
+    angry_urgent_middle_speed: float = 1.06
+
+
+TOKEN_SYLLABLES = {
+    "takukt": ("ta", "kukt"),
+    "pakushk": ("pa", "kushk"),
+    "kilost": ("ki", "lost"),
+    "pulask": ("pu", "lask"),
+    "palosk": ("pa", "losk"),
+    "kazost": ("ka", "zost"),
+    "djano": ("dja", "no"),
+    "tnuka": ("tnu", "ka"),
+    "plami": ("pla", "mi"),
+    "pluna": ("plu", "na"),
+    "plana": ("pla", "na"),
+    "bluma": ("blu", "ma"),
+    "dlamo": ("dla", "mo"),
+    "kada": ("ka", "da"),
+    "tika": ("ti", "ka"),
+    "kika": ("ki", "ka"),
+    "lumi": ("lu", "mi"),
+    "nemo": ("ni", "mo"),
+    "nimo": ("ni", "mo"),
+    "la": ("la",),
+    "ko": ("ko",),
+    "tu": ("tu",),
+    "to": ("to",),
+    "tosh": ("tosh",),
+    "mo": ("mo",),
+    "na": ("na",),
+    "po": ("po",),
+    "ta": ("ta",),
+    "su": ("su",),
+    "za": ("za",),
+    "tak": ("tak",),
+    "kla": ("kla",),
+}
 
 
 @dataclass(frozen=True)
@@ -83,6 +120,7 @@ class ProcessedAudio:
     channels: int
     mode: EmotionMode
     phrase_count: int
+    syllable_count: int
     threshold_dbfs: float
     input_duration_seconds: float
     output_duration_seconds: float
@@ -94,8 +132,8 @@ EMOTION_PRESETS: dict[EmotionMode, EmotionPreset] = {
     "urgent": EmotionPreset(
         mode="urgent",
         phrase_pause_ms=95.0,
-        crossfade_ms=12.0,
-        urgent_speed=1.34,
+        crossfade_ms=24.0,
+        urgent_speed=1.18,
         urgent_pitch_steps=0.0,
         urgent_gain_db=0.7,
         urgent_presence_db=0.4,
@@ -103,33 +141,34 @@ EMOTION_PRESETS: dict[EmotionMode, EmotionPreset] = {
     "angry": EmotionPreset(
         mode="angry",
         phrase_pause_ms=135.0,
-        angry_weak_speed=1.22,
+        crossfade_ms=30.0,
+        angry_weak_speed=1.06,
         angry_strong_speed=1.0,
         angry_baseline_pitch_steps=0.0,
-        angry_peak_pitch_steps=0.35,
-        angry_peak_gain_db=2.4,
-        angry_onset_gain_db=1.8,
+        angry_peak_pitch_steps=0.0,
+        angry_peak_gain_db=1.8,
+        angry_onset_gain_db=1.2,
         angry_presence_db=0.6,
         pitch_spike_window_ms=45.0,
-        tail_stretch=1.16,
-        tail_fall_steps=0.8,
+        tail_stretch=1.10,
+        tail_fall_steps=0.0,
     ),
     "angry_urgent": EmotionPreset(
         mode="angry_urgent",
         phrase_pause_ms=85.0,
-        crossfade_ms=12.0,
-        urgent_speed=1.34,
+        crossfade_ms=28.0,
+        urgent_speed=1.18,
         urgent_pitch_steps=0.0,
-        angry_peak_pitch_steps=0.3,
-        angry_peak_gain_db=2.4,
-        angry_onset_gain_db=1.8,
+        angry_peak_pitch_steps=0.0,
+        angry_peak_gain_db=1.8,
+        angry_onset_gain_db=1.2,
         angry_presence_db=0.5,
         pitch_spike_window_ms=45.0,
-        tail_stretch=1.14,
-        tail_fall_steps=0.7,
-        angry_urgent_begin_speed=1.34,
+        tail_stretch=1.08,
+        tail_fall_steps=0.0,
+        angry_urgent_begin_speed=1.18,
         angry_urgent_begin_pitch_steps=0.0,
-        angry_urgent_middle_speed=1.18,
+        angry_urgent_middle_speed=1.06,
     ),
 }
 
@@ -144,9 +183,10 @@ def process_wav_file(
     output_path: str | Path,
     mode: EmotionMode = "normal",
     preset: EmotionPreset | None = None,
+    syllable_text: str | None = None,
 ) -> ProcessedAudio:
     wav_bytes = Path(input_path).read_bytes()
-    result = process_wav_bytes(wav_bytes, mode=mode, preset=preset)
+    result = process_wav_bytes(wav_bytes, mode=mode, preset=preset, syllable_text=syllable_text)
     Path(output_path).write_bytes(result.wav_bytes)
     return result
 
@@ -155,17 +195,20 @@ def process_wav_bytes(
     wav_bytes: bytes,
     mode: EmotionMode = "normal",
     preset: EmotionPreset | None = None,
+    syllable_text: str | None = None,
 ) -> ProcessedAudio:
     preset = preset or EMOTION_PRESETS[mode]
     mode = preset.mode
     audio, sample_rate, channels = _read_wav_bytes(wav_bytes)
     audio = _loudness_normalize(audio, preset.target_dbfs, preset.limiter_ceiling)
     analysis = analyze_waveform(audio, sample_rate, preset)
+    syllables = _parse_syllables(syllable_text)
 
     if mode == "normal" or not analysis.phrases:
         processed = _soft_limiter(audio, preset.limiter_ceiling)
     else:
-        processed = _render_processed_audio(audio, sample_rate, preset, analysis)
+        syllable_counts = _assign_syllable_counts(analysis, syllables)
+        processed = _render_processed_audio(audio, sample_rate, preset, analysis, syllable_counts)
         processed = _match_rms(processed, audio, max_gain_db=7.0)
         processed = _soft_limiter(processed, preset.limiter_ceiling)
 
@@ -175,6 +218,7 @@ def process_wav_bytes(
         channels=channels,
         mode=mode,
         phrase_count=len(analysis.phrases),
+        syllable_count=len(syllables),
         threshold_dbfs=analysis.threshold_dbfs,
         input_duration_seconds=len(audio) / sample_rate if sample_rate else 0.0,
         output_duration_seconds=len(processed) / sample_rate if sample_rate else 0.0,
@@ -203,19 +247,75 @@ def analyze_waveform(audio: np.ndarray, sample_rate: int, preset: EmotionPreset)
     )
 
 
+def _parse_syllables(text: str | None) -> tuple[str, ...]:
+    if not text:
+        return ()
+    text = re.sub(r"\[[^\]]+\]", " ", text.lower())
+    syllables: list[str] = []
+    for token in re.findall(r"[a-z:]+", text):
+        syllables.extend(TOKEN_SYLLABLES.get(token, _rough_syllables_from_token(token)))
+    return tuple(syllable for syllable in syllables if syllable)
+
+
+def _rough_syllables_from_token(token: str) -> tuple[str, ...]:
+    token = token.replace(":", "")
+    if not token:
+        return ()
+    vowels = set("aeiou")
+    syllables: list[str] = []
+    start = 0
+    index = 0
+    while index < len(token):
+        while index < len(token) and token[index] not in vowels:
+            index += 1
+        if index >= len(token):
+            break
+        index += 1
+        if index < len(token) and token[index - 1 : index + 1] == "ie":
+            index += 1
+        while index < len(token) and token[index] == token[index - 1]:
+            index += 1
+        syllables.append(token[start:index])
+        start = index
+    if not syllables:
+        return (token,)
+    if start < len(token):
+        syllables[-1] += token[start:]
+    return tuple(syllables)
+
+
+def _assign_syllable_counts(analysis: FrameAnalysis, syllables: tuple[str, ...]) -> tuple[int, ...]:
+    if not analysis.phrases:
+        return ()
+    if not syllables:
+        return tuple(0 for _ in analysis.phrases)
+
+    durations = np.array([max(1, phrase.end - phrase.start) for phrase in analysis.phrases], dtype=np.float64)
+    weights = durations / max(1.0, float(np.sum(durations)))
+    raw = weights * len(syllables)
+    counts = np.maximum(1, np.floor(raw).astype(int))
+    while int(np.sum(counts)) < len(syllables):
+        counts[int(np.argmax(raw - counts))] += 1
+    while int(np.sum(counts)) > len(syllables) and np.max(counts) > 1:
+        counts[int(np.argmax(counts - raw))] -= 1
+    return tuple(int(count) for count in counts)
+
+
 def _render_processed_audio(
     audio: np.ndarray,
     sample_rate: int,
     preset: EmotionPreset,
     analysis: FrameAnalysis,
+    syllable_counts: tuple[int, ...],
 ) -> np.ndarray:
     parts: list[np.ndarray] = []
     cursor = 0
-    for phrase in analysis.phrases:
+    for phrase_index, phrase in enumerate(analysis.phrases):
         if phrase.start > cursor:
             parts.append(_compress_pause(audio[cursor : phrase.start], sample_rate, preset))
         phrase_audio = audio[phrase.start : phrase.end]
-        parts.append(_process_phrase(phrase_audio, phrase, sample_rate, preset))
+        syllable_count = syllable_counts[phrase_index] if phrase_index < len(syllable_counts) else 0
+        parts.append(_process_phrase(phrase_audio, phrase, sample_rate, preset, syllable_count))
         cursor = phrase.end
 
     if cursor < len(audio):
@@ -229,20 +329,27 @@ def _process_phrase(
     phrase: PhraseRegion,
     sample_rate: int,
     preset: EmotionPreset,
+    syllable_count: int = 0,
 ) -> np.ndarray:
     if preset.mode == "urgent":
-        return _process_urgent_phrase(phrase_audio, sample_rate, preset)
+        return _process_urgent_phrase(phrase_audio, sample_rate, preset, syllable_count)
     if preset.mode == "angry":
-        return _process_angry_phrase(phrase_audio, phrase, sample_rate, preset)
+        return _process_angry_phrase(phrase_audio, phrase, sample_rate, preset, syllable_count)
     if preset.mode == "angry_urgent":
-        return _process_angry_urgent_phrase(phrase_audio, phrase, sample_rate, preset)
+        return _process_angry_urgent_phrase(phrase_audio, phrase, sample_rate, preset, syllable_count)
     return phrase_audio
 
 
-def _process_urgent_phrase(audio: np.ndarray, sample_rate: int, preset: EmotionPreset) -> np.ndarray:
-    out = _time_stretch(audio, sample_rate, preset.urgent_speed)
+def _process_urgent_phrase(
+    audio: np.ndarray,
+    sample_rate: int,
+    preset: EmotionPreset,
+    syllable_count: int = 0,
+) -> np.ndarray:
+    out = _syllable_time_stretch(audio, sample_rate, syllable_count, preset.urgent_speed, preset.crossfade_ms)
     out = _pitch_shift(out, sample_rate, preset.urgent_pitch_steps)
     out = _apply_gain_db(out, preset.urgent_gain_db)
+    out = _apply_syllable_gain_contour(out, syllable_count, start_db=0.2, mid_db=0.7, end_db=0.4)
     return _presence_boost(out, sample_rate, preset.urgent_presence_db, low_hz=2000, high_hz=4000)
 
 
@@ -251,17 +358,23 @@ def _process_angry_phrase(
     phrase: PhraseRegion,
     sample_rate: int,
     preset: EmotionPreset,
+    syllable_count: int = 0,
 ) -> np.ndarray:
     body, tail, body_len = _split_final_tail(audio, phrase, sample_rate, preset)
     if body.size:
         body = _pitch_shift(body, sample_rate, preset.angry_baseline_pitch_steps)
-        peaks = _local_positions(phrase.peaks, phrase.start, body_len)
-        onsets = (int(sample_rate * 0.03), *_local_positions(phrase.onsets, phrase.start, body_len))
-        body = _apply_gain_windows(body, sample_rate, peaks, preset.angry_peak_gain_db, 85.0)
-        body = _apply_gain_windows(body, sample_rate, onsets, preset.angry_onset_gain_db, 55.0)
-        body = _apply_pitch_spikes(body, sample_rate, (*peaks, *onsets), preset.angry_peak_pitch_steps, preset.pitch_spike_window_ms)
+        body_syllables = _body_syllable_count(syllable_count, len(body), len(audio))
+        rates = _angry_syllable_rates(body_syllables, preset)
+        body = _syllable_time_stretch(body, sample_rate, body_syllables, rates, preset.crossfade_ms)
+        body = _apply_syllable_gain_contour(
+            body,
+            body_syllables,
+            start_db=0.7,
+            mid_db=preset.angry_peak_gain_db,
+            end_db=preset.angry_onset_gain_db,
+        )
+        body = _smooth_phrase_onset(body, sample_rate, preset.angry_onset_gain_db, duration_ms=85.0)
         body = _presence_boost(body, sample_rate, preset.angry_presence_db, low_hz=2000, high_hz=5000)
-        body = _uneven_time_compress(body, sample_rate, (*peaks, *onsets), preset)
 
     if tail.size:
         tail = _process_angry_tail(tail, sample_rate, preset)
@@ -274,24 +387,21 @@ def _process_angry_urgent_phrase(
     phrase: PhraseRegion,
     sample_rate: int,
     preset: EmotionPreset,
+    syllable_count: int = 0,
 ) -> np.ndarray:
     body, tail, _ = _split_final_tail(audio, phrase, sample_rate, preset)
     if body.size:
-        begin_len = int(len(body) * preset.angry_urgent_begin_fraction)
-        begin_len = max(0, min(begin_len, len(body)))
-        begin = body[:begin_len]
-        middle = body[begin_len:]
-        if begin.size:
-            begin = _time_stretch(begin, sample_rate, preset.angry_urgent_begin_speed)
-            begin = _pitch_shift(begin, sample_rate, preset.angry_urgent_begin_pitch_steps)
-            begin = _apply_gain_db(begin, preset.urgent_gain_db)
-        if middle.size:
-            middle = _time_stretch(middle, sample_rate, preset.angry_urgent_middle_speed)
-        body = _concat_with_crossfades([begin, middle], sample_rate, preset.crossfade_ms)
-        peaks, onsets = _local_features(body, sample_rate, preset)
-        body = _apply_gain_windows(body, sample_rate, peaks, preset.angry_peak_gain_db, 80.0)
-        body = _apply_gain_windows(body, sample_rate, onsets, preset.angry_onset_gain_db, 50.0)
-        body = _apply_pitch_spikes(body, sample_rate, (*peaks, *onsets), preset.angry_peak_pitch_steps, preset.pitch_spike_window_ms)
+        body_syllables = _body_syllable_count(syllable_count, len(body), len(audio))
+        rates = _angry_urgent_syllable_rates(body_syllables, preset)
+        body = _syllable_time_stretch(body, sample_rate, body_syllables, rates, preset.crossfade_ms)
+        body = _apply_syllable_gain_contour(
+            body,
+            body_syllables,
+            start_db=0.5,
+            mid_db=1.1,
+            end_db=preset.angry_peak_gain_db,
+        )
+        body = _smooth_phrase_onset(body, sample_rate, preset.urgent_gain_db, duration_ms=90.0)
         body = _presence_boost(body, sample_rate, preset.angry_presence_db, low_hz=2000, high_hz=5000)
 
     if tail.size:
@@ -576,6 +686,114 @@ def _merge_intervals(intervals: Iterable[tuple[int, int]]) -> list[tuple[int, in
 
 def _local_positions(positions: tuple[int, ...], phrase_start: int, max_len: int) -> tuple[int, ...]:
     return tuple(position - phrase_start for position in positions if 0 <= position - phrase_start < max_len)
+
+
+def _body_syllable_count(total_syllables: int, body_len: int, phrase_len: int) -> int:
+    if total_syllables <= 0 or phrase_len <= 0:
+        return 0
+    return max(1, min(total_syllables, int(round(total_syllables * body_len / phrase_len))))
+
+
+def _syllable_boundaries(length: int, syllable_count: int) -> list[tuple[int, int]]:
+    if length <= 0:
+        return []
+    if syllable_count <= 1:
+        return [(0, length)]
+    edges = np.linspace(0, length, syllable_count + 1, dtype=int)
+    return [(int(edges[i]), int(edges[i + 1])) for i in range(syllable_count) if edges[i + 1] > edges[i]]
+
+
+def _syllable_time_stretch(
+    audio: np.ndarray,
+    sample_rate: int,
+    syllable_count: int,
+    rates: float | tuple[float, ...] | list[float],
+    crossfade_ms: float,
+) -> np.ndarray:
+    if not audio.size:
+        return audio
+    if syllable_count <= 1:
+        rate = float(np.mean(rates)) if not isinstance(rates, (float, int)) else float(rates)
+        return _time_stretch(audio, sample_rate, rate)
+
+    if isinstance(rates, (float, int)):
+        rate_values = [float(rates)] * syllable_count
+    else:
+        rate_values = [float(rate) for rate in rates]
+        if len(rate_values) < syllable_count:
+            rate_values.extend([rate_values[-1] if rate_values else 1.0] * (syllable_count - len(rate_values)))
+        rate_values = rate_values[:syllable_count]
+
+    parts: list[np.ndarray] = []
+    for (start, end), rate in zip(_syllable_boundaries(len(audio), syllable_count), rate_values, strict=False):
+        segment = audio[start:end]
+        if len(segment) < int(sample_rate * 0.05):
+            parts.append(segment.copy())
+        else:
+            parts.append(_time_stretch(segment, sample_rate, rate))
+    return _concat_with_crossfades(parts, sample_rate, min(crossfade_ms, 10.0))
+
+
+def _angry_syllable_rates(syllable_count: int, preset: EmotionPreset) -> tuple[float, ...]:
+    if syllable_count <= 0:
+        return ()
+    rates: list[float] = []
+    for index in range(syllable_count):
+        progress = index / max(1, syllable_count - 1)
+        rate = preset.angry_weak_speed - 0.04 * progress
+        if index >= syllable_count - 2:
+            rate = preset.angry_strong_speed
+        rates.append(float(rate))
+    return tuple(rates)
+
+
+def _angry_urgent_syllable_rates(syllable_count: int, preset: EmotionPreset) -> tuple[float, ...]:
+    if syllable_count <= 0:
+        return ()
+    rates: list[float] = []
+    for index in range(syllable_count):
+        progress = index / max(1, syllable_count - 1)
+        if progress < 0.42:
+            rate = preset.angry_urgent_begin_speed
+        elif progress < 0.78:
+            local = (progress - 0.42) / 0.36
+            rate = preset.angry_urgent_begin_speed + (preset.angry_urgent_middle_speed - preset.angry_urgent_begin_speed) * local
+        else:
+            local = (progress - 0.78) / 0.22
+            rate = preset.angry_urgent_middle_speed + (preset.angry_strong_speed - preset.angry_urgent_middle_speed) * local
+        rates.append(float(rate))
+    return tuple(rates)
+
+
+def _apply_syllable_gain_contour(
+    audio: np.ndarray,
+    syllable_count: int,
+    start_db: float,
+    mid_db: float,
+    end_db: float,
+) -> np.ndarray:
+    if not audio.size or syllable_count <= 0:
+        return audio
+    centers = [(start + end) // 2 for start, end in _syllable_boundaries(len(audio), syllable_count)]
+    if not centers:
+        return audio
+    x = np.array([0, *centers, len(audio) - 1], dtype=np.float32)
+    center_progress = np.linspace(0.0, 1.0, len(centers), dtype=np.float32)
+    center_db = np.interp(center_progress, [0.0, 0.62, 1.0], [start_db, mid_db, end_db])
+    y = np.array([start_db * 0.35, *center_db, end_db * 0.5], dtype=np.float32)
+    envelope_db = np.interp(np.arange(len(audio), dtype=np.float32), x, y)
+    envelope_db = _smooth_1d(envelope_db, width=max(5, min(301, len(audio) // 12 or 5)))
+    return audio * (10.0 ** (envelope_db / 20.0)).reshape(-1, 1)
+
+
+def _smooth_phrase_onset(audio: np.ndarray, sample_rate: int, gain_db: float, duration_ms: float) -> np.ndarray:
+    if not audio.size or abs(gain_db) < 0.01:
+        return audio
+    length = min(len(audio), max(1, int(sample_rate * duration_ms / 1000)))
+    envelope_db = np.zeros(len(audio), dtype=np.float32)
+    t = np.linspace(0.0, 1.0, length, dtype=np.float32)
+    envelope_db[:length] = gain_db * (1.0 - t) ** 2
+    return audio * (10.0 ** (envelope_db / 20.0)).reshape(-1, 1)
 
 
 def _time_stretch(audio: np.ndarray, sample_rate: int, rate: float) -> np.ndarray:

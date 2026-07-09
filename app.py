@@ -89,12 +89,13 @@ if st.button("生成语音", disabled=not bool(tts_text.strip()) or not fish_rea
                 speed=tts_speed,
                 audio_format="wav",
             )
-            processed_audio = process_wav_bytes(audio.audio_bytes, mode=emotion_mode)
+            processed_audio = process_wav_bytes(audio.audio_bytes, mode=emotion_mode, syllable_text=tts_text)
         st.audio(processed_audio.wav_bytes, format=processed_audio.mime_type)
         st.caption(
             f"后处理：{processed_audio.mode}，"
             f"{processed_audio.input_duration_seconds:.2f}s -> {processed_audio.output_duration_seconds:.2f}s，"
-            f"{processed_audio.phrase_count} phrases"
+            f"{processed_audio.phrase_count} phrases，"
+            f"{processed_audio.syllable_count} syllables"
         )
     except Exception as exc:
         st.error(f"Fish Audio 生成失败：{exc}")

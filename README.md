@@ -44,14 +44,14 @@ Supported modes:
 - `angry`
 - `angry_urgent`
 
-The module does not use the source sentence or syllable labels. It analyzes RMS energy, pauses, phrase boundaries, local peaks, onsets, and final voiced tails directly from the waveform.
+When `syllable_text` is provided, the module estimates syllable timing from the TTS input and applies smoother syllable-level tempo/gain contours. Without `syllable_text`, it falls back to waveform cues such as RMS energy, pauses, phrase boundaries, local peaks, onsets, and final voiced tails.
 
 Standalone use:
 
 ```python
 from audio_emotion import process_wav_file
 
-process_wav_file("input.wav", "output_angry.wav", mode="angry")
+process_wav_file("input.wav", "output_angry.wav", mode="angry", syllable_text="tika nimo")
 ```
 
 Preset parameters are exposed through `EMOTION_PRESETS` and `get_emotion_preset()`.
