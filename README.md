@@ -33,25 +33,16 @@ FISH_MODEL = "s2-pro"
 
 The app also has a `Fish Audio 设置` panel where API key and speaker/reference ID can be entered temporarily in the browser. Streamlit Secrets are still recommended for deployment.
 
-## Emotional Audio Post-Processing
+## Audio Post-Processing
 
-The app requests WAV audio from Fish Audio, then applies text-independent waveform post-processing in `audio_emotion.py`.
+The app requests WAV audio from Fish Audio, then applies a minimal post-processing pass in `audio_postprocess.py`.
 
-Supported modes:
-
-- `normal`
-- `urgent`
-- `angry`
-- `angry_urgent`
-
-When `syllable_text` is provided, the module estimates syllable timing from the TTS input and applies smoother syllable-level tempo/gain contours. Without `syllable_text`, it falls back to waveform cues such as RMS energy, pauses, phrase boundaries, local peaks, onsets, and final voiced tails.
+The post-processing does not add extra speaking modes. It only holds up the final syllable so the ending does not drop in pitch/intensity. If the final syllable has a consonant coda, only the vowel nucleus gets the small pitch lift; the final consonant is not stretched.
 
 Standalone use:
 
 ```python
-from audio_emotion import process_wav_file
+from audio_postprocess import process_wav_file
 
-process_wav_file("input.wav", "output_angry.wav", mode="angry", syllable_text="tika nimo")
+process_wav_file("input.wav", "output.wav", syllable_text="tika nimo")
 ```
-
-Preset parameters are exposed through `EMOTION_PRESETS` and `get_emotion_preset()`.
