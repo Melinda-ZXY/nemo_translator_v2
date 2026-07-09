@@ -27,31 +27,31 @@ class EmotionPreset:
     crossfade_ms: float = 16.0
     onset_rise_db: float = 5.5
     min_feature_distance_ms: float = 85.0
-    max_peak_count: int = 8
-    urgent_speed: float = 1.22
-    urgent_pitch_steps: float = 1.5
-    urgent_gain_db: float = 1.0
-    urgent_presence_db: float = 1.0
-    angry_weak_speed: float = 1.16
-    angry_strong_speed: float = 1.02
-    angry_baseline_pitch_steps: float = 0.35
-    angry_peak_pitch_steps: float = 2.2
-    angry_peak_gain_db: float = 3.0
-    angry_onset_gain_db: float = 2.2
-    angry_presence_db: float = 2.0
+    max_peak_count: int = 4
+    urgent_speed: float = 1.32
+    urgent_pitch_steps: float = 0.0
+    urgent_gain_db: float = 0.7
+    urgent_presence_db: float = 0.4
+    angry_weak_speed: float = 1.22
+    angry_strong_speed: float = 1.0
+    angry_baseline_pitch_steps: float = 0.0
+    angry_peak_pitch_steps: float = 0.35
+    angry_peak_gain_db: float = 2.4
+    angry_onset_gain_db: float = 1.8
+    angry_presence_db: float = 0.6
     protect_window_ms: float = 80.0
-    pitch_spike_window_ms: float = 90.0
+    pitch_spike_window_ms: float = 45.0
     tail_search_ms: float = 360.0
     tail_min_ms: float = 70.0
-    tail_stretch: float = 1.24
+    tail_stretch: float = 1.16
     tail_max_add_ms: float = 160.0
-    tail_fall_steps: float = 2.2
-    tail_start_gain_db: float = 2.2
-    tail_end_gain_db: float = -4.0
+    tail_fall_steps: float = 0.8
+    tail_start_gain_db: float = 1.6
+    tail_end_gain_db: float = -3.2
     angry_urgent_begin_fraction: float = 0.45
-    angry_urgent_begin_speed: float = 1.25
-    angry_urgent_begin_pitch_steps: float = 1.5
-    angry_urgent_middle_speed: float = 1.10
+    angry_urgent_begin_speed: float = 1.34
+    angry_urgent_begin_pitch_steps: float = 0.0
+    angry_urgent_middle_speed: float = 1.18
 
 
 @dataclass(frozen=True)
@@ -84,6 +84,8 @@ class ProcessedAudio:
     mode: EmotionMode
     phrase_count: int
     threshold_dbfs: float
+    input_duration_seconds: float
+    output_duration_seconds: float
     mime_type: str = "audio/wav"
 
 
@@ -93,34 +95,41 @@ EMOTION_PRESETS: dict[EmotionMode, EmotionPreset] = {
         mode="urgent",
         phrase_pause_ms=95.0,
         crossfade_ms=12.0,
-        urgent_speed=1.24,
-        urgent_pitch_steps=1.6,
-        urgent_gain_db=1.0,
-        urgent_presence_db=1.0,
+        urgent_speed=1.34,
+        urgent_pitch_steps=0.0,
+        urgent_gain_db=0.7,
+        urgent_presence_db=0.4,
     ),
     "angry": EmotionPreset(
         mode="angry",
         phrase_pause_ms=135.0,
-        angry_weak_speed=1.16,
-        angry_strong_speed=1.02,
-        angry_baseline_pitch_steps=0.35,
-        angry_peak_pitch_steps=2.4,
-        angry_peak_gain_db=3.2,
-        angry_onset_gain_db=2.4,
-        angry_presence_db=2.0,
-        tail_stretch=1.24,
+        angry_weak_speed=1.22,
+        angry_strong_speed=1.0,
+        angry_baseline_pitch_steps=0.0,
+        angry_peak_pitch_steps=0.35,
+        angry_peak_gain_db=2.4,
+        angry_onset_gain_db=1.8,
+        angry_presence_db=0.6,
+        pitch_spike_window_ms=45.0,
+        tail_stretch=1.16,
+        tail_fall_steps=0.8,
     ),
     "angry_urgent": EmotionPreset(
         mode="angry_urgent",
         phrase_pause_ms=85.0,
         crossfade_ms=12.0,
-        urgent_speed=1.24,
-        urgent_pitch_steps=1.4,
-        angry_peak_pitch_steps=2.2,
-        angry_peak_gain_db=3.0,
-        angry_onset_gain_db=2.0,
-        angry_presence_db=1.6,
-        tail_stretch=1.22,
+        urgent_speed=1.34,
+        urgent_pitch_steps=0.0,
+        angry_peak_pitch_steps=0.3,
+        angry_peak_gain_db=2.4,
+        angry_onset_gain_db=1.8,
+        angry_presence_db=0.5,
+        pitch_spike_window_ms=45.0,
+        tail_stretch=1.14,
+        tail_fall_steps=0.7,
+        angry_urgent_begin_speed=1.34,
+        angry_urgent_begin_pitch_steps=0.0,
+        angry_urgent_middle_speed=1.18,
     ),
 }
 
@@ -157,6 +166,7 @@ def process_wav_bytes(
         processed = _soft_limiter(audio, preset.limiter_ceiling)
     else:
         processed = _render_processed_audio(audio, sample_rate, preset, analysis)
+        processed = _match_rms(processed, audio, max_gain_db=7.0)
         processed = _soft_limiter(processed, preset.limiter_ceiling)
 
     return ProcessedAudio(
@@ -166,6 +176,8 @@ def process_wav_bytes(
         mode=mode,
         phrase_count=len(analysis.phrases),
         threshold_dbfs=analysis.threshold_dbfs,
+        input_duration_seconds=len(audio) / sample_rate if sample_rate else 0.0,
+        output_duration_seconds=len(processed) / sample_rate if sample_rate else 0.0,
     )
 
 
@@ -228,7 +240,7 @@ def _process_phrase(
 
 
 def _process_urgent_phrase(audio: np.ndarray, sample_rate: int, preset: EmotionPreset) -> np.ndarray:
-    out = _time_stretch(audio, preset.urgent_speed)
+    out = _time_stretch(audio, sample_rate, preset.urgent_speed)
     out = _pitch_shift(out, sample_rate, preset.urgent_pitch_steps)
     out = _apply_gain_db(out, preset.urgent_gain_db)
     return _presence_boost(out, sample_rate, preset.urgent_presence_db, low_hz=2000, high_hz=4000)
@@ -270,11 +282,11 @@ def _process_angry_urgent_phrase(
         begin = body[:begin_len]
         middle = body[begin_len:]
         if begin.size:
-            begin = _time_stretch(begin, preset.angry_urgent_begin_speed)
+            begin = _time_stretch(begin, sample_rate, preset.angry_urgent_begin_speed)
             begin = _pitch_shift(begin, sample_rate, preset.angry_urgent_begin_pitch_steps)
             begin = _apply_gain_db(begin, preset.urgent_gain_db)
         if middle.size:
-            middle = _time_stretch(middle, preset.angry_urgent_middle_speed)
+            middle = _time_stretch(middle, sample_rate, preset.angry_urgent_middle_speed)
         body = _concat_with_crossfades([begin, middle], sample_rate, preset.crossfade_ms)
         peaks, onsets = _local_features(body, sample_rate, preset)
         body = _apply_gain_windows(body, sample_rate, peaks, preset.angry_peak_gain_db, 80.0)
@@ -309,7 +321,7 @@ def _process_angry_tail(audio: np.ndarray, sample_rate: int, preset: EmotionPres
 
     max_len = len(audio) + int(sample_rate * preset.tail_max_add_ms / 1000)
     stretch = min(preset.tail_stretch, max_len / max(1, len(audio)))
-    out = _time_stretch(audio, 1.0 / stretch)
+    out = _time_stretch(audio, sample_rate, 1.0 / stretch)
     out = _falling_pitch_contour(out, sample_rate, preset.tail_fall_steps)
     out = _tail_intensity_contour(out, preset.tail_start_gain_db, preset.tail_end_gain_db)
     return _presence_boost(out, sample_rate, preset.angry_presence_db, low_hz=2000, high_hz=5000)
@@ -533,7 +545,7 @@ def _uneven_time_compress(
     preset: EmotionPreset,
 ) -> np.ndarray:
     if not audio.size or not protect_centers:
-        return _time_stretch(audio, preset.angry_weak_speed)
+        return _time_stretch(audio, sample_rate, preset.angry_weak_speed)
     half = int(sample_rate * preset.protect_window_ms / 1000 / 2)
     intervals = _merge_intervals((center - half, center + half) for center in protect_centers)
     parts: list[np.ndarray] = []
@@ -542,12 +554,12 @@ def _uneven_time_compress(
         start = max(0, min(start, len(audio)))
         end = max(start, min(end, len(audio)))
         if start > cursor:
-            parts.append(_time_stretch(audio[cursor:start], preset.angry_weak_speed))
+            parts.append(_time_stretch(audio[cursor:start], sample_rate, preset.angry_weak_speed))
         if end > start:
-            parts.append(_time_stretch(audio[start:end], preset.angry_strong_speed))
+            parts.append(_time_stretch(audio[start:end], sample_rate, preset.angry_strong_speed))
         cursor = end
     if cursor < len(audio):
-        parts.append(_time_stretch(audio[cursor:], preset.angry_weak_speed))
+        parts.append(_time_stretch(audio[cursor:], sample_rate, preset.angry_weak_speed))
     return _concat_with_crossfades(parts, sample_rate, min(8.0, preset.crossfade_ms))
 
 
@@ -566,16 +578,51 @@ def _local_positions(positions: tuple[int, ...], phrase_start: int, max_len: int
     return tuple(position - phrase_start for position in positions if 0 <= position - phrase_start < max_len)
 
 
-def _time_stretch(audio: np.ndarray, rate: float) -> np.ndarray:
-    if not audio.size or abs(rate - 1.0) < 0.02 or len(audio) < 2048:
+def _time_stretch(audio: np.ndarray, sample_rate: int, rate: float) -> np.ndarray:
+    if not audio.size or abs(rate - 1.0) < 0.02:
         return audio.copy()
-    channels = []
-    for channel in range(audio.shape[1]):
-        try:
-            channels.append(librosa.effects.time_stretch(audio[:, channel].astype(np.float32), rate=rate))
-        except Exception:
-            channels.append(_fit_length(audio[:, channel : channel + 1], int(len(audio) / rate))[:, 0])
-    return _stack_channels(channels)
+    target_len = max(1, int(round(len(audio) / rate)))
+    if len(audio) < int(sample_rate * 0.08):
+        return _fit_length(audio, target_len)
+    return _ola_time_stretch(audio, sample_rate, rate, target_len)
+
+
+def _ola_time_stretch(audio: np.ndarray, sample_rate: int, rate: float, target_len: int) -> np.ndarray:
+    frame_len = int(sample_rate * 0.035)
+    frame_len = max(256, min(frame_len, max(256, len(audio) // 2)))
+    if frame_len % 2:
+        frame_len += 1
+    synth_hop = max(64, frame_len // 4)
+    analysis_hop = max(1, int(round(synth_hop * rate)))
+    window = np.hanning(frame_len).astype(np.float32).reshape(-1, 1)
+
+    max_frames = max(1, int(np.ceil((len(audio) - frame_len) / max(1, analysis_hop))) + 2)
+    out_len = max(target_len + frame_len * 2, synth_hop * max_frames + frame_len * 2)
+    out = np.zeros((out_len, audio.shape[1]), dtype=np.float32)
+    norm = np.zeros((out_len, 1), dtype=np.float32)
+
+    in_pos = 0
+    out_pos = 0
+    while out_pos + frame_len <= out_len:
+        if in_pos + frame_len <= len(audio):
+            frame = audio[in_pos : in_pos + frame_len]
+        else:
+            frame = np.zeros((frame_len, audio.shape[1]), dtype=np.float32)
+            available = max(0, len(audio) - in_pos)
+            if available > 0:
+                frame[:available] = audio[in_pos:]
+        out[out_pos : out_pos + frame_len] += frame * window
+        norm[out_pos : out_pos + frame_len] += window
+        in_pos += analysis_hop
+        out_pos += synth_hop
+        if in_pos >= len(audio) and out_pos >= target_len:
+            break
+
+    valid_len = min(out_len, max(target_len, out_pos + frame_len))
+    out = out[:valid_len]
+    norm = norm[:valid_len]
+    out = np.divide(out, np.maximum(norm, 1e-5), out=np.zeros_like(out), where=norm > 1e-5)
+    return _fit_length(out, target_len)
 
 
 def _pitch_shift(audio: np.ndarray, sample_rate: int, steps: float) -> np.ndarray:
@@ -706,6 +753,17 @@ def _loudness_normalize(audio: np.ndarray, target_dbfs: float, ceiling: float) -
     if peak > ceiling:
         normalized = normalized * (ceiling / peak)
     return normalized.astype(np.float32)
+
+
+def _match_rms(audio: np.ndarray, reference: np.ndarray, max_gain_db: float = 6.0) -> np.ndarray:
+    if not audio.size or not reference.size:
+        return audio
+    source_rms = float(np.sqrt(np.mean(audio * audio) + 1e-12))
+    reference_rms = float(np.sqrt(np.mean(reference * reference) + 1e-12))
+    if source_rms <= 1e-7 or reference_rms <= 1e-7:
+        return audio
+    gain_db = 20.0 * np.log10(reference_rms / source_rms)
+    return _apply_gain_db(audio, float(np.clip(gain_db, -3.0, max_gain_db)))
 
 
 def _soft_limiter(audio: np.ndarray, ceiling: float = 0.96) -> np.ndarray:
