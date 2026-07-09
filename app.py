@@ -1,9 +1,17 @@
 import streamlit as st
 
+from audio_emotion import process_wav_bytes
 from fish_tts import nemo_to_fish_tts_text, synthesize_fish_tts
 from orthography_v2 import render_orthography_html
 from translator_v2_core import lexicon_rows, to_json, translate
 
+
+EMOTION_LABELS = {
+    "normal": "normal",
+    "urgent": "urgent",
+    "angry": "angry",
+    "angry_urgent": "angry_urgent",
+}
 
 EXAMPLES = [
     "主人开心",
@@ -43,6 +51,7 @@ if st.session_state.get("last_fish_tts_default") != tts_default:
 
 tts_text = st.text_input("Fish Audio 输入", key="fish_tts_text")
 tts_speed = st.slider("语速", min_value=0.5, max_value=1.8, value=1.0, step=0.05)
+emotion_mode = st.selectbox("情绪后处理", list(EMOTION_LABELS), format_func=EMOTION_LABELS.get)
 secret_fish_api_key = st.secrets.get("FISH_API_KEY", "")
 secret_fish_reference_id = st.secrets.get("FISH_REFERENCE_ID", st.secrets.get("FISH_SPEAKER_ID", ""))
 secret_fish_model = st.secrets.get("FISH_MODEL", "s2-pro")
@@ -78,8 +87,10 @@ if st.button("生成语音", disabled=not bool(tts_text.strip()) or not fish_rea
                 reference_id=fish_reference_id,
                 model=fish_model,
                 speed=tts_speed,
+                audio_format="wav",
             )
-        st.audio(audio.audio_bytes, format=audio.mime_type)
+            processed_audio = process_wav_bytes(audio.audio_bytes, mode=emotion_mode)
+        st.audio(processed_audio.wav_bytes, format=processed_audio.mime_type)
     except Exception as exc:
         st.error(f"Fish Audio 生成失败：{exc}")
 

@@ -32,3 +32,26 @@ FISH_MODEL = "s2-pro"
 `FISH_SPEAKER_ID` is also accepted as an alias for `FISH_REFERENCE_ID`.
 
 The app also has a `Fish Audio 设置` panel where API key and speaker/reference ID can be entered temporarily in the browser. Streamlit Secrets are still recommended for deployment.
+
+## Emotional Audio Post-Processing
+
+The app requests WAV audio from Fish Audio, then applies text-independent waveform post-processing in `audio_emotion.py`.
+
+Supported modes:
+
+- `normal`
+- `urgent`
+- `angry`
+- `angry_urgent`
+
+The module does not use the source sentence or syllable labels. It analyzes RMS energy, pauses, phrase boundaries, local peaks, onsets, and final voiced tails directly from the waveform.
+
+Standalone use:
+
+```python
+from audio_emotion import process_wav_file
+
+process_wav_file("input.wav", "output_angry.wav", mode="angry")
+```
+
+Preset parameters are exposed through `EMOTION_PRESETS` and `get_emotion_preset()`.

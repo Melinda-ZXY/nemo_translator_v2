@@ -34,12 +34,14 @@ def synthesize_fish_tts(
     reference_id: str,
     model: str = "s2-pro",
     speed: float = 1.0,
+    audio_format: str = "wav",
     timeout: int = 120,
 ) -> FishTTSResult:
     text = (text or "").strip()
     api_key = (api_key or "").strip()
     reference_id = (reference_id or "").strip()
     model = (model or "s2-pro").strip()
+    audio_format = (audio_format or "wav").strip().lower()
 
     if not text:
         raise ValueError("TTS text is empty.")
@@ -60,7 +62,7 @@ def synthesize_fish_tts(
         },
         "chunk_length": 200,
         "normalize": False,
-        "format": "mp3",
+        "format": audio_format,
         "sample_rate": 44100,
         "mp3_bitrate": 128,
         "latency": "normal",
@@ -83,7 +85,8 @@ def synthesize_fish_tts(
 
     try:
         with urlopen(request, timeout=timeout) as response:
-            mime_type = response.headers.get("Content-Type") or "audio/mpeg"
+            fallback_mime_type = "audio/wav" if audio_format == "wav" else "audio/mpeg"
+            mime_type = response.headers.get("Content-Type") or fallback_mime_type
             return FishTTSResult(audio_bytes=response.read(), mime_type=mime_type.split(";")[0])
     except HTTPError as exc:
         raise RuntimeError(_fish_error_message(exc)) from exc
