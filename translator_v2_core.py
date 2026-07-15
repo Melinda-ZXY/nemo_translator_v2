@@ -187,8 +187,8 @@ def parse_tokens(token_infos: list[dict]) -> dict:
         if token.get("function") not in {"question", "aspect"}
     ]
 
-    possessive_index = _index_of_function(content, "possessive")
-    if possessive_index is not None and possessive_index > 0 and possessive_index < len(content) - 1:
+    possessive_index = _standalone_possessive_index(content)
+    if possessive_index is not None:
         parsed.update(
             {
                 "type": "possessive",
@@ -197,6 +197,8 @@ def parse_tokens(token_infos: list[dict]) -> dict:
             }
         )
         return parsed
+
+    content = _collapse_possessive_phrases(content)
 
     want_index = _index_of_function(content, "want")
     like_index = _index_of_function(content, "like")
@@ -209,39 +211,45 @@ def parse_tokens(token_infos: list[dict]) -> dict:
 
     state_index = _index_of_pos(content, "state")
     if state_index is not None:
+        subject, with_object = _subject_and_with(content[:state_index])
         parsed.update(
             {
                 "type": "state",
                 "state": content[state_index],
-                "subject": _nearest_entity(content[:state_index], reverse=True)
+                "subject": subject
                 or _nearest_entity(content[state_index + 1 :], reverse=False),
                 "intensity": _nearest_by_function(content, "intensity"),
+                "with": with_object,
             }
         )
         return parsed
 
     verb_index = _index_of_pos(content, "verb")
     if verb_index is not None:
+        before_verb = content[:verb_index]
+        subject, with_object = _subject_and_with(before_verb)
         parsed.update(
             {
                 "type": "verb",
                 "verb": content[verb_index],
-                "subject": _nearest_entity(content[:verb_index], reverse=True)
+                "subject": subject
                 or _nearest_entity(content[verb_index + 1 :], reverse=False),
                 "object": _nearest_entity(content[verb_index + 1 :], reverse=False),
                 "adverb": _nearest_by_function(content, "speed"),
-                "with": _with_object(content),
+                "with": with_object,
             }
         )
         return parsed
 
     copula_index = _index_of_function(content, "copula")
     if copula_index is not None:
+        subject, with_object = _subject_and_with(content[:copula_index])
         parsed.update(
             {
                 "type": "identity",
-                "subject": _nearest_entity(content[:copula_index], reverse=True),
+                "subject": subject,
                 "object": _nearest_entity(content[copula_index + 1 :], reverse=False),
+                "with": with_object,
             }
         )
         return parsed
@@ -286,6 +294,7 @@ def generate_nemo(parsed: dict) -> list[str]:
         _append_token(tokens, parsed.get("intensity"))
         _append_negation(tokens, parsed)
         _append_entity(tokens, parsed.get("subject"))
+        _append_with(tokens, parsed.get("with"))
         return tokens
 
     if sentence_type == "verb":
@@ -300,6 +309,7 @@ def generate_nemo(parsed: dict) -> list[str]:
     if sentence_type == "identity":
         tokens.append("za")
         _append_entity(tokens, parsed.get("subject"))
+        _append_with(tokens, parsed.get("with"))
         _append_entity(tokens, parsed.get("object"))
         _append_negation(tokens, parsed)
         return tokens
@@ -364,6 +374,7 @@ def _find_next_known_index(text: str, start: int) -> int:
 
 
 def _parse_modal_clause(parsed: dict, content: list[dict], modal_index: int, sentence_type: str) -> None:
+    subject, subject_with = _subject_and_with(content[:modal_index])
     after_modal = content[modal_index + 1 :]
     verb = _nearest_by_pos(after_modal, "verb")
     with_object = _with_object(after_modal)
@@ -375,11 +386,11 @@ def _parse_modal_clause(parsed: dict, content: list[dict], modal_index: int, sen
     parsed.update(
         {
             "type": sentence_type,
-            "subject": _nearest_entity(content[:modal_index], reverse=True),
+            "subject": subject,
             "verb": verb,
             "object": object_candidates[-1] if object_candidates else None,
             "adverb": _nearest_by_function(after_modal, "speed"),
-            "with": with_object,
+            "with": with_object or subject_with,
         }
     )
 
@@ -422,12 +433,64 @@ def _index_of_pos(tokens: list[dict], pos: str) -> int | None:
     return None
 
 
+def _standalone_possessive_index(tokens: list[dict]) -> int | None:
+    if len(tokens) != 3:
+        return None
+    if not _is_entity(tokens[0]) or not _is_entity(tokens[2]):
+        return None
+    if not _has_function(tokens[1], "possessive"):
+        return None
+    return 1
+
+
+def _collapse_possessive_phrases(tokens: list[dict]) -> list[dict]:
+    result: list[dict] = []
+    index = 0
+    while index < len(tokens):
+        if (
+            index + 2 < len(tokens)
+            and _is_entity(tokens[index])
+            and _has_function(tokens[index + 1], "possessive")
+            and _is_entity(tokens[index + 2])
+        ):
+            possessor = tokens[index]
+            possessed = tokens[index + 2]
+            result.append(
+                {
+                    "text": f"{possessor['text']}的{possessed['text']}",
+                    "known": (
+                        possessor.get("known", False)
+                        and possessed.get("known", False)
+                    ),
+                    "nemo": f"{_entity_nemo(possessor)} tu {_entity_nemo(possessed)}",
+                    "pos": "noun",
+                    "function": "possessive_phrase",
+                    "english": "possessive phrase",
+                    "shape": "phrase",
+                    "possessor": possessor,
+                    "possessed": possessed,
+                }
+            )
+            index += 3
+            continue
+        result.append(tokens[index])
+        index += 1
+    return result
+
+
 def _has_function(token: dict, function: str) -> bool:
     return token.get("function") == function
 
 
 def _is_entity(token: dict) -> bool:
     return token.get("pos") == "noun" or token.get("function") == "loanword"
+
+
+def _entity_nemo(token: dict) -> str:
+    parts = token.get("nemo", "").split()
+    if token.get("plural"):
+        parts.append("su")
+    return " ".join(parts)
 
 
 def _nearest_entity(tokens: list[dict], reverse: bool) -> dict | None:
@@ -457,6 +520,16 @@ def _with_object(tokens: list[dict]) -> dict | None:
     if with_index is None:
         return None
     return _nearest_entity(tokens[with_index + 1 :], reverse=False)
+
+
+def _subject_and_with(tokens: list[dict]) -> tuple[dict | None, dict | None]:
+    with_index = _index_of_function(tokens, "with")
+    if with_index is None:
+        return _nearest_entity(tokens, reverse=True), None
+    return (
+        _nearest_entity(tokens[:with_index], reverse=True),
+        _nearest_entity(tokens[with_index + 1 :], reverse=False),
+    )
 
 
 def _attach_plural_markers(tokens: list[dict]) -> list[dict]:
