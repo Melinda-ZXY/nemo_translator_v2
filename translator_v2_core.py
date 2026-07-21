@@ -57,6 +57,10 @@ LEXICON = {
     "快": {"nemo": "kika", "pos": "adverb", "function": "speed", "english": "quickly", "shape": "CV.CV"},
     "快速": {"nemo": "kika", "pos": "adverb", "function": "speed", "english": "quickly", "shape": "CV.CV"},
     "喜欢": {"nemo": "lumi", "pos": "particle", "function": "like", "english": "like", "shape": "CV.CV"},
+    "得意": {"nemo": "doka", "pos": "state", "english": "proud", "shape": "CV.CV"},
+    "得意的": {"nemo": "doka", "pos": "state", "english": "proud", "shape": "CV.CV"},
+    "没事": {"nemo": "padu", "pos": "state", "english": "okay/no problem", "shape": "CV.CV"},
+    "没事的": {"nemo": "padu", "pos": "state", "english": "okay/no problem", "shape": "CV.CV"},
 
     # CV
     "和": {"nemo": "la", "pos": "particle", "function": "with", "english": "with", "shape": "CV"},
@@ -82,7 +86,13 @@ LEXICON = {
     "很多": {"nemo": "su", "pos": "particle", "function": "plural", "english": "plural", "shape": "CV"},
     "了": {"nemo": "", "pos": "particle", "function": "aspect", "english": "aspect", "shape": ""},
     "是": {"nemo": "za", "pos": "particle", "function": "copula", "english": "be/is", "shape": "CV"},
+    "上升": {"nemo": "ka", "pos": "verb", "english": "up/rise", "shape": "CV"},
+    "下降": {"nemo": "ki", "pos": "verb", "english": "down/fall", "shape": "CV"},
     "搞什么鬼": {"nemo": "kla tosh tak", "pos": "expression", "english": "what the hell / hate super-ghost", "shape": "expression"},
+
+    # CVV
+    "那里": {"nemo": "daa", "pos": "noun", "english": "there", "shape": "CVV"},
+    "这里": {"nemo": "dee", "pos": "noun", "english": "here", "shape": "CVV"},
 }
 
 ALIASES = {

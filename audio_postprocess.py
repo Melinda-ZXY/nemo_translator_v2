@@ -28,6 +28,8 @@ TOKEN_SYLLABLES = {
     "tika": ("ti", "ka"),
     "kika": ("ki", "ka"),
     "lumi": ("lu", "mi"),
+    "doka": ("do", "ka"),
+    "padu": ("pa", "du"),
     "nemo": ("ni", "mo"),
     "nimo": ("ni", "mo"),
     "la": ("la",),
@@ -43,6 +45,10 @@ TOKEN_SYLLABLES = {
     "za": ("za",),
     "tak": ("tak",),
     "kla": ("kla",),
+    "daa": ("daa",),
+    "dee": ("dee",),
+    "ka": ("ka",),
+    "ki": ("ki",),
 }
 
 
