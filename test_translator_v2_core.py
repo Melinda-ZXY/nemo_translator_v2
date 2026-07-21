@@ -62,6 +62,10 @@ class NewLexiconTests(unittest.TestCase):
         self.assertEqual(translate("电池下降")["nemo"], "ki plana")
         self.assertEqual(translate("这里没事的")["nemo"], "padu dee")
 
+    def test_zai_uses_the_same_copula_logic_as_shi(self):
+        self.assertEqual(translate("我在这里")["nemo"], "za mo dee")
+        self.assertEqual(translate("我是在这里")["nemo"], "za mo dee")
+
     def test_new_terms_have_renderable_glyphs(self):
         for token in ("daa", "dee", "doka", "ka", "ki", "padu"):
             with self.subTest(token=token):

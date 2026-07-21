@@ -86,6 +86,7 @@ LEXICON = {
     "很多": {"nemo": "su", "pos": "particle", "function": "plural", "english": "plural", "shape": "CV"},
     "了": {"nemo": "", "pos": "particle", "function": "aspect", "english": "aspect", "shape": ""},
     "是": {"nemo": "za", "pos": "particle", "function": "copula", "english": "be/is", "shape": "CV"},
+    "在": {"nemo": "za", "pos": "particle", "function": "copula", "english": "be/at", "shape": "CV"},
     "上升": {"nemo": "ka", "pos": "verb", "english": "up/rise", "shape": "CV"},
     "下降": {"nemo": "ki", "pos": "verb", "english": "down/fall", "shape": "CV"},
     "搞什么鬼": {"nemo": "kla tosh tak", "pos": "expression", "english": "what the hell / hate super-ghost", "shape": "expression"},
