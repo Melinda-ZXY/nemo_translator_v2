@@ -58,7 +58,7 @@ voice_mode = st.selectbox("语音模式", list(VOICE_MODE_LABELS), format_func=V
 angry_speed = st.slider("angry 语速", min_value=1.0, max_value=1.8, value=1.6, step=0.05)
 secret_fish_api_key = st.secrets.get("FISH_API_KEY", "")
 secret_fish_reference_id = st.secrets.get("FISH_REFERENCE_ID", st.secrets.get("FISH_SPEAKER_ID", ""))
-secret_fish_model = st.secrets.get("FISH_MODEL", "s2-pro")
+secret_fish_model = st.secrets.get("FISH_MODEL", "s2.1-pro")
 
 with st.expander("Fish Audio 设置", expanded=not bool(secret_fish_api_key and secret_fish_reference_id)):
     fish_api_key_input = st.text_input(
@@ -72,11 +72,11 @@ with st.expander("Fish Audio 设置", expanded=not bool(secret_fish_api_key and 
         value="",
         placeholder="如果没有设置 Streamlit Secrets，可以临时填在这里",
     )
-    fish_model_input = st.text_input("Model", value=secret_fish_model or "s2-pro")
+    fish_model_input = st.text_input("Model", value=secret_fish_model or "s2.1-pro")
 
 fish_api_key = fish_api_key_input.strip() or secret_fish_api_key
 fish_reference_id = fish_reference_id_input.strip() or secret_fish_reference_id
-fish_model = fish_model_input.strip() or secret_fish_model or "s2-pro"
+fish_model = fish_model_input.strip() or secret_fish_model or "s2.1-pro"
 
 fish_ready = bool(fish_api_key and fish_reference_id)
 if not fish_ready:

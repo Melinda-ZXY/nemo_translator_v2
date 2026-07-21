@@ -32,7 +32,7 @@ def synthesize_fish_tts(
     text: str,
     api_key: str,
     reference_id: str,
-    model: str = "s2-pro",
+    model: str = "s2.1-pro",
     speed: float = 1.0,
     audio_format: str = "wav",
     timeout: int = 120,
@@ -40,7 +40,7 @@ def synthesize_fish_tts(
     text = (text or "").strip()
     api_key = (api_key or "").strip()
     reference_id = (reference_id or "").strip()
-    model = (model or "s2-pro").strip()
+    model = (model or "s2.1-pro").strip()
     audio_format = (audio_format or "wav").strip().lower()
 
     if not text:

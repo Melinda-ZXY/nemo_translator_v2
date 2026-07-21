@@ -26,7 +26,7 @@ Set these in Streamlit Community Cloud `Settings -> Secrets`:
 ```toml
 FISH_API_KEY = "your_fish_audio_api_key"
 FISH_REFERENCE_ID = "your_speaker_or_reference_id"
-FISH_MODEL = "s2-pro"
+FISH_MODEL = "s2.1-pro"
 ```
 
 `FISH_SPEAKER_ID` is also accepted as an alias for `FISH_REFERENCE_ID`.
